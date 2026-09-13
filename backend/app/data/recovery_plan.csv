@@ -1,3 +1,0 @@
-task_id,asset_id,corridor_id,section_id,maintenance_type,required_block_type,priority_score,priority_level,estimated_duration_minutes,duration_buffer_minutes,planning_duration_minutes,original_block_id,recovery_block_id,block_date,start_time,end_time,block_duration_minutes,block_type,approval_status,recovery_status,reason
-T0108,ENG_064,C1,S04,Corrective,Engineering Block,21.64,Normal,60,20,80,BLK00178,BLK00604,2026-10-08,2026-10-08 13:00:00,2026-10-08 16:00:00,180,Engineering Block,Approved,Reassigned,Compatible recovery block found
-T0241,ENG_010,C1,S04,Corrective,Engineering Block,558.32,Urgent,30,30,60,BLK00178,BLK00604,2026-10-08,2026-10-08 13:00:00,2026-10-08 16:00:00,180,Engineering Block,Approved,Reassigned,Compatible recovery block found

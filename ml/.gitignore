@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Generated pipeline artifacts (rebuilt from data/ scripts; not authoritative)
+*.joblib
+app/ml_models/saved_models/

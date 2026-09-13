@@ -38,6 +38,10 @@ export const notificationsApi = {
   markRead: (id) => unwrap(api.post(`/notifications/${id}/read`)),
 };
 
+export const mlApi = {
+  simulateSectionDay: (sectionId, date) => unwrap(api.get(`/ml/simulate/section/${sectionId}`, { params: { date } })),
+};
+
 export const auditApi = {
   list: (params) => unwrap(api.get("/audit", { params })),
 };

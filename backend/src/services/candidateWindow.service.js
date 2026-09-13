@@ -1,7 +1,5 @@
 import BlockRequest, { ACTIVE_STATUSES } from "../models/BlockRequest.js";
-
-const DAY_START_HOUR = 6;
-const DAY_END_HOUR = 22;
+import { DAY_START_HOUR, DAY_END_HOUR } from "../config/operatingHours.js";
 
 function startOfDay(date) {
   const d = new Date(date);

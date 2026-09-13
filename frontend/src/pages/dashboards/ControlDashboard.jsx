@@ -3,6 +3,7 @@ import DashboardLayout from "../../components/DashboardLayout";
 import StatCard from "../../components/StatCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
 import ControlRequestCard from "../../components/ControlRequestCard";
+import SimulationPanel from "../../components/SimulationPanel";
 import { blockRequestsApi, conflictsApi, schedulesApi } from "../../api/resources";
 
 export default function ControlDashboard() {
@@ -142,6 +143,11 @@ export default function ControlDashboard() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+        <h2 className="font-medium text-slate-900 mb-3">Day Simulation</h2>
+        <SimulationPanel />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">

@@ -9,6 +9,7 @@ import notificationsRoutes from "./notifications.routes.js";
 import auditRoutes from "./audit.routes.js";
 import usersRoutes from "./users.routes.js";
 import mlRoutes from "./ml.routes.js";
+import dashboardRoutes from "./dashboard.routes.js";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use("/notifications", notificationsRoutes);
 router.use("/audit", auditRoutes);
 router.use("/users", usersRoutes);
 router.use("/ml", mlRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;

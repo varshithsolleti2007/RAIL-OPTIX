@@ -7,12 +7,7 @@ import { generateCandidateWindows } from "../services/candidateWindow.service.js
 import { getScheduleRecommendation } from "../services/mlGateway.service.js";
 import { notifyDepartment, notifyRole } from "../services/notification.service.js";
 import { recordAudit } from "../services/audit.service.js";
-
-const POPULATE = [
-  { path: "department", select: "name code" },
-  { path: "requestedBy", select: "name email" },
-  { path: "section", select: "name corridorId" },
-];
+import { atomicTransition, POPULATE } from "../services/blockRequestState.service.js";
 
 function computeDuration(startTime, endTime) {
   return Math.round((new Date(endTime) - new Date(startTime)) / 60000);
@@ -129,37 +124,44 @@ export const updateBlockRequest = asyncHandler(async (req, res) => {
 
 // POST /api/block-requests/:id/submit  (owner)
 export const submitBlockRequest = asyncHandler(async (req, res) => {
-  const request = await BlockRequest.findById(req.params.id);
+  const existing = await BlockRequest.findById(req.params.id);
 
-  if (!request) {
+  if (!existing) {
     throw new ApiError(404, "Block request not found.", "NOT_FOUND");
   }
 
-  if (String(request.requestedBy) !== String(req.user.id)) {
+  if (String(existing.requestedBy) !== String(req.user.id)) {
     throw new ApiError(403, "You can only submit your own request.", "FORBIDDEN");
   }
 
-  if (request.status !== "DRAFT") {
-    throw new ApiError(409, "Only DRAFT requests can be submitted.", "INVALID_STATE");
+  const updated = await atomicTransition(req.params.id, ["DRAFT"], { status: "SUBMITTED" });
+
+  if (!updated) {
+    // Another call (double-click, retry) already submitted it - or it
+    // was never a DRAFT to begin with. Report current state, do nothing else.
+    const current = await BlockRequest.findById(req.params.id).populate(POPULATE);
+    return res.json({
+      success: true,
+      message: `Request is already ${current.status}; nothing to submit.`,
+      code: "OK",
+      data: { request: current, idempotent: true, conflictsDetected: 0 },
+    });
   }
 
-  request.status = "SUBMITTED";
-  await request.save();
+  const conflicts = await detectConflictsForRequest(updated);
 
-  const conflicts = await detectConflictsForRequest(request);
-
-  await recordAudit({ actor: req.user.id, action: "SUBMIT", entityType: "BlockRequest", entityId: request._id, after: request.toObject() });
+  await recordAudit({ actor: req.user.id, action: "SUBMIT", entityType: "BlockRequest", entityId: updated._id, after: updated.toObject() });
   await notifyRole("control", {
     type: "REQUEST_SUBMITTED",
-    message: `${request.requestNumber} (${request.workType}) submitted for review.`,
-    relatedRequest: request._id,
+    message: `${updated.requestNumber} (${updated.workType}) submitted for review.`,
+    relatedRequest: updated._id,
   });
 
   res.json({
     success: true,
     message: "Request submitted.",
     code: "OK",
-    data: { request, conflictsDetected: conflicts.length },
+    data: { request: updated, conflictsDetected: conflicts.length },
   });
 });
 
@@ -204,35 +206,47 @@ export const recommendForBlockRequest = asyncHandler(async (req, res) => {
 // POST /api/block-requests/:id/approve  (control)
 // body: { startTime?, endTime? } - omit to approve the originally requested window.
 export const approveBlockRequest = asyncHandler(async (req, res) => {
-  const request = await BlockRequest.findById(req.params.id);
+  const existing = await BlockRequest.findById(req.params.id);
 
-  if (!request) {
+  if (!existing) {
     throw new ApiError(404, "Block request not found.", "NOT_FOUND");
   }
 
-  if (!["SUBMITTED", "APPROVED", "FAILED"].includes(request.status)) {
-    throw new ApiError(409, "Only a SUBMITTED, APPROVED or FAILED request can be approved.", "INVALID_STATE");
+  const timeUpdate = {};
+
+  if (req.body.startTime) timeUpdate.startTime = req.body.startTime;
+  if (req.body.endTime) timeUpdate.endTime = req.body.endTime;
+
+  if (timeUpdate.startTime || timeUpdate.endTime) {
+    timeUpdate.durationMinutes = computeDuration(
+      timeUpdate.startTime || existing.startTime,
+      timeUpdate.endTime || existing.endTime
+    );
   }
 
-  const before = request.toObject();
+  const updated = await atomicTransition(req.params.id, ["SUBMITTED", "APPROVED", "FAILED"], {
+    status: "SCHEDULED",
+    ...timeUpdate,
+  });
 
-  if (req.body.startTime) request.startTime = req.body.startTime;
-  if (req.body.endTime) request.endTime = req.body.endTime;
-  if (req.body.startTime || req.body.endTime) {
-    request.durationMinutes = computeDuration(request.startTime, request.endTime);
+  if (!updated) {
+    const current = await BlockRequest.findById(req.params.id).populate(POPULATE);
+    return res.json({
+      success: true,
+      message: `Request is already ${current.status}; nothing to approve.`,
+      code: "OK",
+      data: { request: current, idempotent: true },
+    });
   }
-
-  request.status = "SCHEDULED";
-  await request.save();
 
   const schedule = await Schedule.findOneAndUpdate(
-    { request: request._id },
+    { request: updated._id },
     {
-      request: request._id,
-      section: request.section,
-      date: request.date,
-      startTime: request.startTime,
-      endTime: request.endTime,
+      request: updated._id,
+      section: updated.section,
+      date: updated.date,
+      startTime: updated.startTime,
+      endTime: updated.endTime,
       status: "PUBLISHED",
       approvedBy: req.user.id,
       approvalTimestamp: new Date(),
@@ -244,46 +258,52 @@ export const approveBlockRequest = asyncHandler(async (req, res) => {
     actor: req.user.id,
     action: "APPROVE",
     entityType: "BlockRequest",
-    entityId: request._id,
-    before,
-    after: request.toObject(),
+    entityId: updated._id,
+    before: existing.toObject(),
+    after: updated.toObject(),
   });
 
-  await notifyDepartment(request.department, {
+  await notifyDepartment(updated.department, {
     type: "SCHEDULE_PUBLISHED",
-    message: `${request.requestNumber} approved and scheduled for ${request.startTime.toISOString()} - ${request.endTime.toISOString()}.`,
-    relatedRequest: request._id,
+    message: `${updated.requestNumber} approved and scheduled for ${updated.startTime.toISOString()} - ${updated.endTime.toISOString()}.`,
+    relatedRequest: updated._id,
   });
 
-  res.json({ success: true, message: "Request approved and scheduled.", code: "OK", data: { request, schedule } });
+  res.json({ success: true, message: "Request approved and scheduled.", code: "OK", data: { request: updated, schedule } });
 });
 
 // POST /api/block-requests/:id/reject  (control)
 export const rejectBlockRequest = asyncHandler(async (req, res) => {
   const { reason } = req.body;
-  const request = await BlockRequest.findById(req.params.id);
+  const existing = await BlockRequest.findById(req.params.id);
 
-  if (!request) {
+  if (!existing) {
     throw new ApiError(404, "Block request not found.", "NOT_FOUND");
   }
 
-  if (request.status !== "SUBMITTED") {
-    throw new ApiError(409, "Only a SUBMITTED request can be rejected.", "INVALID_STATE");
-  }
-
-  const before = request.toObject();
-  request.status = "REJECTED";
-  request.rejectionReason = reason || "";
-  await request.save();
-
-  await recordAudit({ actor: req.user.id, action: "REJECT", entityType: "BlockRequest", entityId: request._id, before, after: request.toObject() });
-  await notifyDepartment(request.department, {
-    type: "REQUEST_REJECTED",
-    message: `${request.requestNumber} was rejected.${reason ? ` Reason: ${reason}` : ""}`,
-    relatedRequest: request._id,
+  const updated = await atomicTransition(req.params.id, ["SUBMITTED"], {
+    status: "REJECTED",
+    rejectionReason: reason || "",
   });
 
-  res.json({ success: true, message: "Request rejected.", code: "OK", data: { request } });
+  if (!updated) {
+    const current = await BlockRequest.findById(req.params.id).populate(POPULATE);
+    return res.json({
+      success: true,
+      message: `Request is already ${current.status}; nothing to reject.`,
+      code: "OK",
+      data: { request: current, idempotent: true },
+    });
+  }
+
+  await recordAudit({ actor: req.user.id, action: "REJECT", entityType: "BlockRequest", entityId: updated._id, before: existing.toObject(), after: updated.toObject() });
+  await notifyDepartment(updated.department, {
+    type: "REQUEST_REJECTED",
+    message: `${updated.requestNumber} was rejected.${reason ? ` Reason: ${reason}` : ""}`,
+    relatedRequest: updated._id,
+  });
+
+  res.json({ success: true, message: "Request rejected.", code: "OK", data: { request: updated } });
 });
 
 // POST /api/block-requests/:id/reschedule  (control)
@@ -346,59 +366,88 @@ export const rescheduleBlockRequest = asyncHandler(async (req, res) => {
 // recovery recommendation. Never auto-applies - Control Officer still
 // has to call /approve on the outcome.
 export const failBlockRequest = asyncHandler(async (req, res) => {
-  const request = await BlockRequest.findById(req.params.id);
+  const existing = await BlockRequest.findById(req.params.id);
 
-  if (!request) {
+  if (!existing) {
     throw new ApiError(404, "Block request not found.", "NOT_FOUND");
   }
 
-  if (request.status !== "SCHEDULED") {
-    throw new ApiError(409, "Only a SCHEDULED request can be marked as failed.", "INVALID_STATE");
+  // The atomic guard: only the call that actually flips SCHEDULED->FAILED
+  // proceeds to create the audit entry, the notifications, and to call
+  // the Intelligence Service. A second concurrent call (double-click,
+  // retry, duplicate request) will not match this filter and gets `null`
+  // back instead of racing past the same check.
+  const updated = await atomicTransition(req.params.id, ["SCHEDULED"], { status: "FAILED" });
+
+  if (!updated) {
+    const current = await BlockRequest.findById(req.params.id).populate(POPULATE);
+
+    if (current.status === "FAILED") {
+      return res.json({
+        success: true,
+        message: "Already failed - recovery already pending.",
+        code: "OK",
+        data: {
+          request: current,
+          idempotent: true,
+          recovery: current.recommendation
+            ? {
+                available: true,
+                recommendations: [current.recommendation],
+                modelVersion: current.recommendation.modelVersion,
+              }
+            : { available: false, recommendations: [], modelVersion: null },
+        },
+      });
+    }
+
+    throw new ApiError(
+      409,
+      `Only a SCHEDULED request can be marked as failed (current status: ${current.status}).`,
+      "INVALID_STATE"
+    );
   }
 
-  const before = request.toObject();
-  request.status = "FAILED";
-  await request.save();
-  await Schedule.findOneAndUpdate({ request: request._id }, { status: "FAILED" });
+  await Schedule.findOneAndUpdate({ request: updated._id }, { status: "FAILED" });
 
-  await recordAudit({ actor: req.user.id, action: "FAIL", entityType: "BlockRequest", entityId: request._id, before, after: request.toObject() });
-  await notifyDepartment(request.department, {
+  await recordAudit({ actor: req.user.id, action: "FAIL", entityType: "BlockRequest", entityId: updated._id, before: existing.toObject(), after: updated.toObject() });
+  await notifyDepartment(updated.department, {
     type: "RECOVERY_NEEDED",
-    message: `${request.requestNumber} was disrupted and needs a new block window.`,
-    relatedRequest: request._id,
+    message: `${updated.requestNumber} was disrupted and needs a new block window.`,
+    relatedRequest: updated._id,
   });
   await notifyRole("control", {
     type: "RECOVERY_NEEDED",
-    message: `${request.requestNumber} was disrupted. Recovery recommendation requested.`,
-    relatedRequest: request._id,
+    message: `${updated.requestNumber} was disrupted. Recovery recommendation requested.`,
+    relatedRequest: updated._id,
   });
 
   // Request is now FAILED (no longer ACTIVE), so it no longer occupies its
   // old window - candidate generation naturally finds it free again too.
-  const candidateWindows = await generateCandidateWindows(request);
+  const candidateWindows = await generateCandidateWindows(updated);
 
   if (candidateWindows.length === 0) {
     return res.json({
       success: true,
       message: "Request marked failed. No feasible recovery windows found.",
       code: "OK",
-      data: { request, recovery: { available: false, recommendations: [], modelVersion: null } },
+      data: { request: updated, recovery: { available: false, recommendations: [], modelVersion: null } },
     });
   }
 
   const existingBookings = await BlockRequest.find({
-    _id: { $ne: request._id },
-    section: request.section,
+    _id: { $ne: updated._id },
+    section: updated.section,
     status: { $in: ACTIVE_STATUSES },
-    date: request.date,
+    date: updated.date,
   }).select("startTime endTime");
 
-  const recovery = await getScheduleRecommendation({ request, candidateWindows, existingBookings });
+  const recovery = await getScheduleRecommendation({ request: updated, candidateWindows, existingBookings });
 
   if (recovery.available && recovery.recommendations?.length) {
-    request.recommendation = { ...recovery.recommendations[0], modelVersion: recovery.modelVersion, generatedAt: new Date() };
-    await request.save();
+    updated.recommendation = { ...recovery.recommendations[0], modelVersion: recovery.modelVersion, generatedAt: new Date() };
+    await updated.save();
   }
 
-  res.json({ success: true, message: "Request marked failed. Recovery recommendation generated.", code: "OK", data: { request, recovery } });
+  res.json({ success: true, message: "Request marked failed. Recovery recommendation generated.", code: "OK", data: { request: updated, recovery } });
 });

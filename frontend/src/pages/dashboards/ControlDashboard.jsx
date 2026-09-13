@@ -4,27 +4,32 @@ import StatCard from "../../components/StatCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
 import ControlRequestCard from "../../components/ControlRequestCard";
 import SimulationPanel from "../../components/SimulationPanel";
-import { blockRequestsApi, conflictsApi, schedulesApi } from "../../api/resources";
+import { blockRequestsApi, conflictsApi, dashboardApi, schedulesApi } from "../../api/resources";
 
 export default function ControlDashboard() {
   const [requests, setRequests] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState(null);
   const [resolution, setResolution] = useState("");
+  const [failingId, setFailingId] = useState(null);
+  const [failError, setFailError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [reqRes, conflictRes, scheduleRes] = await Promise.all([
+      const [reqRes, conflictRes, scheduleRes, metricsRes] = await Promise.all([
         blockRequestsApi.list(),
         conflictsApi.list({ status: "OPEN" }),
         schedulesApi.list(),
+        dashboardApi.controlMetrics(),
       ]);
       setRequests(reqRes.requests);
       setConflicts(conflictRes.conflicts);
       setSchedules(scheduleRes.schedules);
+      setMetrics(metricsRes);
     } finally {
       setLoading(false);
     }
@@ -34,10 +39,14 @@ export default function ControlDashboard() {
     load();
   }, [load]);
 
+  // "Pending Requests" (the stat) and the actionable queue (the list) are
+  // deliberately different things: the stat counts only SUBMITTED per
+  // the backend's own metrics query, while the queue also surfaces
+  // FAILED requests so Control has one place to review anything needing
+  // a decision - a disrupted request just needs a different decision
+  // (recovery) than a pending one (approve/reject).
   const actionable = requests.filter((r) => ["SUBMITTED", "FAILED"].includes(r.status));
   const scheduled = schedules.filter((s) => s.status === "PUBLISHED");
-  const today = new Date().toDateString();
-  const todaysBlocks = scheduled.filter((s) => new Date(s.startTime).toDateString() === today).length;
 
   async function handleResolve(id) {
     await conflictsApi.resolve(id, resolution);
@@ -47,17 +56,30 @@ export default function ControlDashboard() {
   }
 
   async function handleSimulateFailure(requestId) {
-    await blockRequestsApi.fail(requestId);
-    load();
+    if (failingId) return; // a fail request is already in flight - ignore extra clicks
+    setFailingId(requestId);
+    setFailError("");
+    try {
+      const result = await blockRequestsApi.fail(requestId);
+      if (result.idempotent) {
+        setFailError(result.message);
+      }
+      load();
+    } catch (err) {
+      setFailError(err.response?.data?.message || "Could not simulate failure.");
+    } finally {
+      setFailingId(null);
+    }
   }
 
   return (
     <DashboardLayout title="Control Center">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Pending Requests" value={actionable.length} />
-        <StatCard label="Open Conflicts" value={conflicts.length} />
-        <StatCard label="Today's Blocks" value={todaysBlocks} />
-        <StatCard label="Upcoming Blocks" value={scheduled.length} />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <StatCard label="Pending Requests" value={metrics ? metrics.pendingRequests : "-"} />
+        <StatCard label="Open Conflicts" value={metrics ? metrics.openConflicts : "-"} />
+        <StatCard label="Today's Blocks" value={metrics ? metrics.todaysBlocks : "-"} />
+        <StatCard label="Upcoming Blocks" value={metrics ? metrics.upcomingBlocks : "-"} />
+        <StatCard label="Recovery Required" value={metrics ? metrics.recoveryRequired : "-"} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-6">
@@ -119,6 +141,7 @@ export default function ControlDashboard() {
 
       <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
         <h2 className="font-medium text-slate-900 mb-3">Schedule Timeline</h2>
+        {failError && <p className="text-xs text-red-600 mb-2">{failError}</p>}
         {scheduled.length === 0 ? (
           <p className="text-sm text-slate-500">No schedules published yet.</p>
         ) : (
@@ -135,9 +158,10 @@ export default function ControlDashboard() {
                 </div>
                 <button
                   onClick={() => handleSimulateFailure(s.request._id)}
-                  className="text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded px-2 py-1 shrink-0"
+                  disabled={failingId === s.request._id}
+                  className="text-xs bg-red-100 hover:bg-red-200 disabled:opacity-50 text-red-700 rounded px-2 py-1 shrink-0"
                 >
-                  Simulate Failure
+                  {failingId === s.request._id ? "Simulating..." : "Simulate Failure"}
                 </button>
               </div>
             ))}

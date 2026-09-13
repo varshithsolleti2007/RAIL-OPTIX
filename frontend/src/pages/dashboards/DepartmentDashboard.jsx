@@ -64,7 +64,7 @@ export default function DepartmentDashboard({ departmentName, workTypes }) {
           </div>
         )}
 
-        <BlockRequestsList requests={requests} loading={loading} />
+        <BlockRequestsList requests={requests} loading={loading} onChanged={load} />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4">

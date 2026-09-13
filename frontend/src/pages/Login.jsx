@@ -24,6 +24,7 @@ export default function Login() {
       const user = await login(email, password);
       navigate(ROLE_HOME[user.role] || "/");
     } catch (err) {
+      console.error("Login failed:", err);
       setError(err.response?.data?.message || "Login failed");
     }
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { notificationsApi } from "../api/resources";
+import { Button } from "./ui";
 
 export default function NotificationsPanel() {
   const [notifications, setNotifications] = useState([]);
@@ -24,28 +25,25 @@ export default function NotificationsPanel() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading notifications...</p>;
+    return <p className="text-sm text-steel">Loading notifications...</p>;
   }
 
   if (notifications.length === 0) {
-    return <p className="text-sm text-slate-500">No notifications yet.</p>;
+    return <p className="text-sm text-steel">No notifications yet.</p>;
   }
 
   return (
-    <ul className="divide-y divide-slate-100">
+    <ul className="divide-y divide-hairline-soft">
       {notifications.map((n) => (
-        <li key={n._id} className="py-2 flex items-start justify-between gap-3">
+        <li key={n._id} className="flex items-start justify-between gap-3 py-2.5">
           <div>
-            <p className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.message}</p>
-            <p className="text-xs text-slate-400">{new Date(n.createdAt).toLocaleString()}</p>
+            <p className={`text-sm ${n.read ? "text-steel" : "font-medium text-ink"}`}>{n.message}</p>
+            <p className="text-xs text-stone">{new Date(n.createdAt).toLocaleString()}</p>
           </div>
           {!n.read && (
-            <button
-              onClick={() => handleRead(n._id)}
-              className="text-xs text-blue-600 hover:underline shrink-0"
-            >
+            <Button variant="link" size="xs" className="shrink-0" onClick={() => handleRead(n._id)}>
               Mark read
-            </button>
+            </Button>
           )}
         </li>
       ))}

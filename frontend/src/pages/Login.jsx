@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Button, TextField } from "../components/ui";
 
 const ROLE_HOME = {
   admin: "/admin",
@@ -30,56 +31,49 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white shadow-md rounded-lg p-8 w-full max-w-sm space-y-4"
-      >
-        <h1 className="text-xl font-semibold text-slate-900">
-          Railway Block Planning
-        </h1>
-        <p className="text-sm text-slate-500">Sign in to continue</p>
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex items-center justify-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-yellow text-base font-bold text-primary">
+            R
+          </span>
+          <span className="text-lg font-semibold text-ink">RailOptix</span>
+        </div>
 
-        {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-            {error}
+        <form onSubmit={handleSubmit} className="rounded-card-lg border border-hairline-soft bg-canvas p-8 shadow-[0_4px_12px_0_rgba(20,21,15,0.06)]">
+          <h1 className="text-xl font-semibold text-ink">Welcome back</h1>
+          <p className="mt-1 text-sm text-steel">Sign in to coordinate block requests.</p>
+
+          {error && (
+            <div className="mt-4 rounded-input border border-danger/20 bg-danger-bg px-3 py-2 text-sm text-danger">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-5 space-y-4">
+            <TextField
+              label="Email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <TextField
+              label="Password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
           </div>
-        )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Email
-          </label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Password
-          </label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded py-2 text-sm font-medium"
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
+          <Button type="submit" variant="primary" size="md" disabled={loading} className="mt-6 w-full">
+            {loading ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

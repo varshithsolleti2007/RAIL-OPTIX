@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
-import StatCard from "../../components/StatCard";
 import BlockRequestForm from "../../components/BlockRequestForm";
 import BlockRequestsList from "../../components/BlockRequestsList";
 import NotificationsPanel from "../../components/NotificationsPanel";
+import { Button, Card, StatTile } from "../../components/ui";
 import { blockRequestsApi } from "../../api/resources";
 
 export default function DepartmentDashboard({ departmentName, workTypes }) {
@@ -34,26 +34,23 @@ export default function DepartmentDashboard({ departmentName, workTypes }) {
 
   return (
     <DashboardLayout title={`${departmentName} Dashboard`}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Requests" value={counts.total} />
-        <StatCard label="Pending" value={counts.pending} />
-        <StatCard label="Approved" value={counts.approved} />
-        <StatCard label="Rejected" value={counts.rejected} />
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatTile label="Total Requests" value={counts.total} tone="base" />
+        <StatTile label="Pending" value={counts.pending} tone="yellow" />
+        <StatTile label="Approved" value={counts.approved} tone="teal" />
+        <StatTile label="Rejected" value={counts.rejected} tone="coral" />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium text-slate-900">Requests</h2>
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            className="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1.5"
-          >
+      <Card padding="md" className="mb-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-ink">Requests</h2>
+          <Button variant={showForm ? "secondary" : "primary"} onClick={() => setShowForm((s) => !s)}>
             {showForm ? "Cancel" : "+ Create Block Request"}
-          </button>
+          </Button>
         </div>
 
         {showForm && (
-          <div className="mb-4 pb-4 border-b border-slate-100">
+          <div className="mb-5 border-b border-hairline-soft pb-5">
             <BlockRequestForm
               workTypes={workTypes}
               onCreated={() => {
@@ -65,12 +62,12 @@ export default function DepartmentDashboard({ departmentName, workTypes }) {
         )}
 
         <BlockRequestsList requests={requests} loading={loading} onChanged={load} />
-      </div>
+      </Card>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4">
-        <h2 className="font-medium text-slate-900 mb-3">Notifications</h2>
+      <Card padding="md">
+        <h2 className="mb-3 text-base font-semibold text-ink">Notifications</h2>
         <NotificationsPanel />
-      </div>
+      </Card>
     </DashboardLayout>
   );
 }

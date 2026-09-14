@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { blockRequestsApi } from "../api/resources";
+import { Badge, Button, STATUS_BADGE, TextField } from "./ui";
 
 function fmt(dt) {
   return new Date(dt).toLocaleString();
@@ -63,58 +64,53 @@ export default function ControlRequestCard({ request, onChanged }) {
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg p-3">
+    <div className="rounded-input border border-hairline-soft p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-slate-900">
+          <p className="text-sm font-medium text-ink">
             {request.requestNumber} - {request.workType}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-steel">
             {request.department?.name} - {request.section?.name} - {request.priority}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-steel">
             Requested: {fmt(request.startTime)} - {fmt(request.endTime)}
           </p>
         </div>
-        <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">
+        <Badge variant={STATUS_BADGE[request.status] || "neutral"} className="shrink-0">
           {request.status}
-        </span>
+        </Badge>
       </div>
 
-      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
       {recommendation ? (
-        <div className="mt-3 bg-blue-50 border border-blue-100 rounded p-2 text-xs text-slate-700">
-          <p className="font-medium text-blue-900">AI Recommendation ({recommendation.modelVersion})</p>
-          <p>
+        <div className="mt-3 rounded-input border border-brand-blue/20 bg-blue-light p-2.5 text-xs text-charcoal">
+          <p className="font-semibold text-brand-blue">AI Recommendation ({recommendation.modelVersion})</p>
+          <p className="mt-0.5">
             {fmt(recommendation.startTime)} - {fmt(recommendation.endTime)}
           </p>
-          <p>
+          <p className="mt-0.5">
             Conflict: {recommendation.conflictScore} · Disruption: {recommendation.disruptionScore} · Confidence:{" "}
             {Math.round(recommendation.confidence * 100)}%
           </p>
-          <p className="italic mt-1">{recommendation.reason}</p>
+          <p className="mt-1 italic text-steel">{recommendation.reason}</p>
         </div>
       ) : (
-        <button
-          onClick={handleRecommend}
-          disabled={loading}
-          className="mt-3 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1"
-        >
+        <Button variant="ghost" size="xs" className="mt-3 border border-hairline" disabled={loading} onClick={handleRecommend}>
           Get AI Recommendation
-        </button>
+        </Button>
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          onClick={handleAccept}
-          disabled={loading}
-          className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded px-3 py-1.5"
-        >
+        <Button size="xs" disabled={loading} onClick={handleAccept}>
           {recommendation ? "Accept Recommendation" : "Approve As Requested"}
-        </button>
+        </Button>
         {recommendation && (
-          <button
+          <Button
+            variant="secondary"
+            size="xs"
+            disabled={loading}
             onClick={async () => {
               setLoading(true);
               try {
@@ -124,35 +120,26 @@ export default function ControlRequestCard({ request, onChanged }) {
                 setLoading(false);
               }
             }}
-            disabled={loading}
-            className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-800 rounded px-3 py-1.5"
           >
             Approve Original Instead
-          </button>
+          </Button>
         )}
-        <button
-          onClick={() => setShowReject((s) => !s)}
-          className="text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded px-3 py-1.5"
-        >
+        <Button variant="danger" size="xs" onClick={() => setShowReject((s) => !s)}>
           Reject
-        </button>
+        </Button>
       </div>
 
       {showReject && (
         <div className="mt-2 flex gap-2">
-          <input
+          <TextField
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Reason for rejection"
-            className="flex-1 text-xs rounded border border-slate-300 px-2 py-1"
+            className="flex-1 text-xs"
           />
-          <button
-            onClick={handleReject}
-            disabled={loading}
-            className="text-xs bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1"
-          >
+          <Button variant="danger" size="xs" disabled={loading} onClick={handleReject}>
             Confirm Reject
-          </button>
+          </Button>
         </div>
       )}
     </div>

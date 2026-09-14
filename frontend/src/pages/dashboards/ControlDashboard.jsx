@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
-import StatCard from "../../components/StatCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
 import ControlRequestCard from "../../components/ControlRequestCard";
 import SimulationPanel from "../../components/SimulationPanel";
+import { Badge, Button, Card, StatTile, TextField } from "../../components/ui";
 import { blockRequestsApi, conflictsApi, dashboardApi, schedulesApi } from "../../api/resources";
 
 export default function ControlDashboard() {
@@ -74,37 +74,40 @@ export default function ControlDashboard() {
 
   return (
     <DashboardLayout title="Control Center">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Pending Requests" value={metrics ? metrics.pendingRequests : "-"} />
-        <StatCard label="Open Conflicts" value={metrics ? metrics.openConflicts : "-"} />
-        <StatCard label="Today's Blocks" value={metrics ? metrics.todaysBlocks : "-"} />
-        <StatCard label="Upcoming Blocks" value={metrics ? metrics.upcomingBlocks : "-"} />
-        <StatCard label="Recovery Required" value={metrics ? metrics.recoveryRequired : "-"} />
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+        <StatTile label="Pending Requests" value={metrics ? metrics.pendingRequests : "-"} tone="yellow" />
+        <StatTile label="Open Conflicts" value={metrics ? metrics.openConflicts : "-"} tone="coral" />
+        <StatTile label="Today's Blocks" value={metrics ? metrics.todaysBlocks : "-"} tone="teal" />
+        <StatTile label="Upcoming Blocks" value={metrics ? metrics.upcomingBlocks : "-"} tone="base" />
+        <StatTile label="Recovery Required" value={metrics ? metrics.recoveryRequired : "-"} tone="rose" />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <h2 className="font-medium text-slate-900 mb-3">Request Queue</h2>
-          {loading && <p className="text-sm text-slate-500">Loading...</p>}
-          {!loading && actionable.length === 0 && <p className="text-sm text-slate-500">No pending requests.</p>}
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <Card padding="md">
+          <h2 className="mb-3 text-base font-semibold text-ink">Request Queue</h2>
+          {loading && <p className="text-sm text-steel">Loading...</p>}
+          {!loading && actionable.length === 0 && <p className="text-sm text-steel">No pending requests.</p>}
           <div className="space-y-3">
             {actionable.map((r) => (
               <ControlRequestCard key={r._id} request={r} onChanged={load} />
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <h2 className="font-medium text-slate-900 mb-3">Conflicts</h2>
-          {!loading && conflicts.length === 0 && <p className="text-sm text-slate-500">No open conflicts.</p>}
+        <Card padding="md">
+          <h2 className="mb-3 text-base font-semibold text-ink">Conflicts</h2>
+          {!loading && conflicts.length === 0 && <p className="text-sm text-steel">No open conflicts.</p>}
           <div className="space-y-3">
             {conflicts.map((c) => (
-              <div key={c._id} className="border border-slate-200 rounded p-2 text-sm">
-                <p className="font-medium text-slate-900">{c.section?.name}</p>
-                <p className="text-xs text-slate-500">{c.description}</p>
-                <div className="mt-1 space-y-0.5">
+              <div key={c._id} className="rounded-input border border-hairline-soft p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-ink">{c.section?.name}</p>
+                  <Badge variant="warning">{c.severity}</Badge>
+                </div>
+                <p className="mt-0.5 text-xs text-steel">{c.description}</p>
+                <div className="mt-1.5 space-y-0.5">
                   {c.requests.map((r) => (
-                    <p key={r._id} className="text-xs text-slate-600">
+                    <p key={r._id} className="text-xs text-slate">
                       {r.requestNumber} - {r.workType} ({r.status})
                     </p>
                   ))}
@@ -112,72 +115,67 @@ export default function ControlDashboard() {
 
                 {resolvingId === c._id ? (
                   <div className="mt-2 flex gap-2">
-                    <input
+                    <TextField
                       value={resolution}
                       onChange={(e) => setResolution(e.target.value)}
                       placeholder="Resolution note"
-                      className="flex-1 text-xs rounded border border-slate-300 px-2 py-1"
+                      className="flex-1 text-xs"
                     />
-                    <button
-                      onClick={() => handleResolve(c._id)}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-1"
-                    >
+                    <Button size="xs" onClick={() => handleResolve(c._id)}>
                       Confirm
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setResolvingId(c._id)}
-                    className="mt-2 text-xs text-blue-600 hover:underline"
-                  >
+                  <Button variant="link" size="xs" className="mt-2" onClick={() => setResolvingId(c._id)}>
                     Mark resolved
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-slate-900 mb-3">Schedule Timeline</h2>
-        {failError && <p className="text-xs text-red-600 mb-2">{failError}</p>}
+      <Card padding="md" className="mb-6">
+        <h2 className="mb-3 text-base font-semibold text-ink">Schedule Timeline</h2>
+        {failError && <p className="mb-2 text-xs text-danger">{failError}</p>}
         {scheduled.length === 0 ? (
-          <p className="text-sm text-slate-500">No schedules published yet.</p>
+          <p className="text-sm text-steel">No schedules published yet.</p>
         ) : (
           <div className="space-y-2">
             {scheduled.map((s) => (
-              <div key={s._id} className="flex items-center justify-between border border-slate-100 rounded p-2 text-sm">
+              <div key={s._id} className="flex items-center justify-between rounded-input border border-hairline-soft p-3 text-sm">
                 <div>
-                  <p className="font-medium text-slate-900">
+                  <p className="font-medium text-ink">
                     {s.request?.requestNumber} - {s.request?.workType} ({s.section?.name})
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-steel">
                     {new Date(s.startTime).toLocaleString()} - {new Date(s.endTime).toLocaleTimeString()}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="danger"
+                  size="xs"
                   onClick={() => handleSimulateFailure(s.request._id)}
                   disabled={failingId === s.request._id}
-                  className="text-xs bg-red-100 hover:bg-red-200 disabled:opacity-50 text-red-700 rounded px-2 py-1 shrink-0"
                 >
                   {failingId === s.request._id ? "Simulating..." : "Simulate Failure"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-slate-900 mb-3">Day Simulation</h2>
+      <Card padding="md" className="mb-6">
+        <h2 className="mb-3 text-base font-semibold text-ink">Day Simulation</h2>
         <SimulationPanel />
-      </div>
+      </Card>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4">
-        <h2 className="font-medium text-slate-900 mb-3">Notifications</h2>
+      <Card padding="md">
+        <h2 className="mb-3 text-base font-semibold text-ink">Notifications</h2>
         <NotificationsPanel />
-      </div>
+      </Card>
     </DashboardLayout>
   );
 }

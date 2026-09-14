@@ -1,6 +1,82 @@
 @import "tailwindcss";
 
+/*
+  Design tokens adapted from design.md (Miro system) for a control-room
+  application: pill buttons + black primary CTA + pastel accents carry
+  over directly; the pastel "feature card" language is repurposed onto
+  KPI tiles and status badges instead of marketing feature cards, since
+  this app has none.
+*/
+@theme {
+  --font-display: "Plus Jakarta Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Brand */
+  --color-brand-yellow: #ffd02f;
+  --color-brand-yellow-deep: #e6b800;
+  --color-yellow-light: #fff6d9;
+  --color-yellow-dark: #7a5c00;
+
+  --color-brand-blue: #4262ff;
+  --color-blue-pressed: #2f46cc;
+  --color-blue-light: #e8ecff;
+
+  --color-brand-coral: #ff6f59;
+  --color-coral-light: #ffe4de;
+  --color-coral-dark: #7a2e1f;
+
+  --color-brand-rose: #f49cc4;
+  --color-rose-light: #fde7ee;
+
+  --color-brand-teal: #2fbfa0;
+  --color-teal-light: #dff7ef;
+  --color-moss-dark: #114d3d;
+
+  --color-brand-orange-light: #ffe8d4;
+  --color-orange-dark: #8a4a12;
+
+  /* Surface */
+  --color-canvas: #ffffff;
+  --color-surface: #f5f5f2;
+  --color-surface-soft: #fafaf9;
+  --color-surface-featured: #edebfb;
+  --color-hairline: #e4e2dc;
+  --color-hairline-soft: #eeede8;
+  --color-hairline-strong: #cfccc3;
+
+  /* Text */
+  --color-ink-deep: #0b0c0a;
+  --color-ink: #14150f;
+  --color-charcoal: #2b2c26;
+  --color-slate: #5b5d52;
+  --color-steel: #7c7e71;
+  --color-stone: #9b9c8f;
+  --color-muted: #b7b8ac;
+  --color-on-dark: #ffffff;
+
+  /* Semantic */
+  --color-success: #1f9d55;
+  --color-success-bg: #e4f5ea;
+  --color-danger: #c0392b;
+  --color-danger-bg: #fdeae7;
+  --color-warning: #b3791a;
+  --color-warning-bg: #fff1d6;
+
+  /* Primary (black pill) */
+  --color-primary: #14150f;
+  --color-on-primary: #ffffff;
+
+  /* Radius */
+  --radius-pill: 9999px;
+  --radius-input: 8px;
+  --radius-card: 16px;
+  --radius-card-lg: 20px;
+  --radius-feature: 28px;
+}
+
 body {
   margin: 0;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
 }

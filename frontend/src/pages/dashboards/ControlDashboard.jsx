@@ -159,7 +159,7 @@ export default function ControlDashboard() {
                   onClick={() => handleSimulateFailure(s.request._id)}
                   disabled={failingId === s.request._id}
                 >
-                  {failingId === s.request._id ? "Simulating..." : "Simulate Failure"}
+                  {failingId === s.request._id ? "Simulating..." : "Simulate review"}
                 </Button>
               </div>
             ))}

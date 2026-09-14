@@ -36,10 +36,9 @@ npm run dev
 
 ```bash
 cd ml
-python -m venv .venv
-./.venv/Scripts/pip install -r requirements.txt   # Windows
-uvicorn app.main:app --reload --port 8000
-```
+
+ ./.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
+
 
 ## PRD Set
 

@@ -52,5 +52,6 @@ export const auditApi = {
 
 export const usersApi = {
   list: () => unwrap(api.get("/users")),
+  create: (payload) => unwrap(api.post("/users", payload)),
   setActive: (id, isActive) => unwrap(api.put(`/users/${id}/active`, { isActive })),
 };
